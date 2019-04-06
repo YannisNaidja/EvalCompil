@@ -22,7 +22,7 @@ void parcours_n_prog(n_prog *n)
 	portee = P_VARIABLE_GLOBALE;
 	code3a_init();
   parcours_l_dec(n->variables);
-  parcours_l_dec(n->fonctions); 
+  parcours_l_dec(n->fonctions);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -41,7 +41,7 @@ void parcours_l_instr(n_l_instr *n)
 void parcours_instr(n_instr *n)
 {
   if(n){
-    if(n->type == blocInst) parcours_l_instr(n->u.liste);
+    if(n->type == blocInst) parcours_l_instr(n->u.liste); 
     else if(n->type == affecteInst) parcours_instr_affect(n);
     else if(n->type == siInst) parcours_instr_si(n);
     else if(n->type == tantqueInst) parcours_instr_tantque(n);
@@ -67,9 +67,7 @@ void parcours_instr_si(n_instr *n)
   operande *faux = code3a_new_etiquette_auto();
   operande *vrai = code3a_new_etiquette_auto();
   
-  
   operande *tmp = parcours_exp(n->u.si_.test);
-  
   
   if(n->u.si_.sinon){
     code3a_ajoute_instruction(jump_if_equal,tmp,zero,faux,NULL);
@@ -107,8 +105,8 @@ void parcours_instr_tantque(n_instr *n)
 
 void parcours_instr_affect(n_instr *n)
 {
-	operande* op1 = parcours_var(n->u.affecte_.var);
 	operande* op2 = parcours_exp(n->u.affecte_.exp);
+	operande* op1 = parcours_var(n->u.affecte_.var);
 	code3a_ajoute_instruction(assign,op2,NULL,op1,NULL);
 }
 
@@ -133,10 +131,9 @@ operande* parcours_appel(n_appel *n)
 	 }
    
 
-  if(n->args==NULL)
-    printf("\n");
+ 
   
-   else if(tabsymboles.tab[ligne].complement!=nb_arguments_exp(n->args)){
+   if(tabsymboles.tab[ligne].complement!=nb_arguments_exp(n->args)){
      printf("Erreur semantique : fonction appelee avec le mauvais nombre d'args\n");
 		return NULL;
    }
@@ -147,8 +144,10 @@ operande* parcours_appel(n_appel *n)
   char *s = malloc(sizeof(char)*2);
   s[0]='f';
   s[1]='\0';
-  operande* tmp = code3a_new_etiquette(strcat(s,n->fonction));
-  
+  char* fname = malloc(sizeof(char)*(strlen(n->fonction)+1));
+  strcpy(fname,n->fonction);
+  char* name = strcat(s,fname);
+  operande* tmp = code3a_new_etiquette(name);
   //code3a_ajoute_instruction(func_call,tmp,NULL,NULL,NULL);
   //code3a_ajoute_instruction(assign,func_call,tmp,t,NULL);
   
@@ -178,8 +177,11 @@ void parcours_instr_ecrire(n_instr *n)
 
 void parcours_l_exp(n_l_exp *n)
 {
+	operande* var;
   if(n){
-    parcours_exp(n->tete);
+    var = parcours_exp(n->tete);
+     if(portee == P_ARGUMENT)
+		code3a_ajoute_instruction(func_param,var,NULL,NULL,NULL);
     parcours_l_exp(n->queue);
   }
 }
@@ -215,7 +217,7 @@ operande* parcours_opExp(n_exp *n)
   operande *moinsun = code3a_new_constante(-1);
 
   
-  operande *affect_negatif = code3a_new_etiquette_auto();
+  operande *affect_negatif;
   
 	
 	switch(n->u.opExp_.op){
@@ -224,13 +226,15 @@ operande* parcours_opExp(n_exp *n)
 		case fois : code3a_ajoute_instruction(arith_mult,op1,op2,tmp,NULL); break;
 		case divise : code3a_ajoute_instruction(arith_div,op1,op2,tmp,NULL); break;
 
-		case egal :       code3a_ajoute_instruction(assign,moinsun,NULL,tmp,NULL);
+		case egal :     affect_negatif = code3a_new_etiquette_auto();  
+						code3a_ajoute_instruction(assign,moinsun,NULL,tmp,NULL);
                       code3a_ajoute_instruction(jump_if_equal,op1,op2,affect_negatif,NULL); 
                       code3a_ajoute_instruction(assign,zero,NULL,tmp,NULL);
                       code3a_ajoute_etiquette(affect_negatif->u.oper_nom);
                 break;
 
 		case inferieur : 
+						affect_negatif = code3a_new_etiquette_auto();
                       code3a_ajoute_instruction(assign,moinsun,NULL,tmp,NULL);
                       code3a_ajoute_instruction(jump_if_less,op1,op2,affect_negatif,NULL); 
                       code3a_ajoute_instruction(assign,zero,NULL,tmp,NULL);
@@ -255,7 +259,8 @@ operande* parcours_intExp(n_exp *n)
 {
   char texte[ 50 ]; // Max. 50 chiffres
   sprintf(texte, "%d", n->u.entier);
-  return code3a_new_constante(n->u.entier);
+  operande* nb = code3a_new_constante(n->u.entier);
+  return nb;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -281,7 +286,6 @@ operande* parcours_appelExp(n_exp *n)
 void parcours_l_dec(n_l_dec *n)
 {
   if( n ){
-    
     parcours_dec(n->tete);
     parcours_l_dec(n->queue);
   }
@@ -346,7 +350,6 @@ void parcours_foncDec(n_dec *n)
 	entreeFonction();
   adresseLocaleCourante = 0;
   adresseArgumentCourant = 0;
-  
   
   
   parcours_l_dec(n->u.foncDec_.param);
@@ -428,7 +431,7 @@ void parcours_tabDec(n_dec *n)
 	operande *taille = code3a_new_constante(n->u.tabDec_.taille);
 	operande *vartab = code3a_new_var(n->nom,portee, tabsymboles.tab[ligne].adresse);
 	
-	code3a_ajoute_instruction(alloc,taille,vartab,NULL,NULL);
+	code3a_ajoute_instruction(alloc,taille,vartab,NULL,n->nom);
 	
 	adresseGlobaleCourante += 4*n->u.tabDec_.taille;
 	//tabsymboles.addresseGlobaleCourante += 4*n->u.tabDec_.taille;
@@ -462,8 +465,6 @@ operande* parcours_var_simple(n_var *n)
 
    operande* var = code3a_new_var(n->nom,tabsymboles.tab[ligne].portee,tabsymboles.tab[ligne].adresse);
    
-   if(portee == P_ARGUMENT)
-	code3a_ajoute_instruction(func_param,var,NULL,NULL,NULL);
    return var;
 }
 
@@ -478,8 +479,17 @@ operande * parcours_var_indicee(n_var *n)
   if(n->u.indicee_.indice==NULL){
      printf("Erreur : utilisation d un tableau sans indice\n");
    }
+   operande* var;
+   operande* t;
   operande *indice = parcours_exp( n->u.indicee_.indice );
-  operande* var = code3a_new_var_indicee(n->nom,tabsymboles.tab[ligne].portee,tabsymboles.tab[ligne].adresse,indice);
+  if(indice->oper_type == O_VARIABLE){
+	  t = code3a_new_temporaire();
+	  code3a_ajoute_instruction(assign,indice,NULL,t,NULL);
+	var = code3a_new_var_indicee(n->nom,tabsymboles.tab[ligne].portee,tabsymboles.tab[ligne].adresse,t);
+	var->u.oper_var.oper_indice=t;
+	return var;
+	}
+  var = code3a_new_var_indicee(n->nom,tabsymboles.tab[ligne].portee,tabsymboles.tab[ligne].adresse,indice);
   var->u.oper_var.oper_indice=indice;
   return var;
 }
